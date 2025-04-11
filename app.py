@@ -4,19 +4,32 @@ import nltk
 import re
 import string
 import os
+import time
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-nltk_data_path = os.path.join(os.path.dirname(__file__), 'nltk_data')
-os.makedirs(nltk_data_path, exist_ok=True)
-nltk.data.path.append(nltk_data_path)
+def safe_nltk_download(resource):
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            nltk.download(resource)
+            return True
+        except PermissionError:
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+            st.error(f"Failed to download NLTK resource '{resource}' after {max_retries} attempts")
+            return False
+        except Exception as e:
+            st.error(f"Error downloading NLTK resource '{resource}': {str(e)}")
+            return False
 
-required_nltk = ['punkt', 'stopwords', 'punkt_tab']
+required_nltk = ['punkt', 'stopwords']
 for resource in required_nltk:
     try:
         nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
     except LookupError:
-        nltk.download(resource)
+        safe_nltk_download(resource)
 
 try:
     model = joblib.load('model.pkl')
