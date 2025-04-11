@@ -3,30 +3,44 @@ import joblib
 import nltk
 import re
 import string
+import os
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-# Fix: Only download if not already available
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    nltk.download('punkt')
+nltk_data_path = os.path.join(os.path.dirname(__file__), 'nltk_data')
+os.makedirs(nltk_data_path, exist_ok=True)
+nltk.data.path.append(nltk_data_path)
+
+required_nltk = ['punkt', 'stopwords']
+for resource in required_nltk:
+    try:
+        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+    except LookupError:
+        try:
+            nltk.download(resource, quiet=True)
+        except Exception as e:
+            st.error(f"Failed to download NLTK resource '{resource}': {str(e)}")
+            nltk.download(resource)  
 
 try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    nltk.download('stopwords')
-
-model = joblib.load('model.pkl')
-vectorizer = joblib.load('vectorizer.pkl')
+    model = joblib.load('model.pkl')
+    vectorizer = joblib.load('vectorizer.pkl')
+except Exception as e:
+    st.error(f" Failed to load model files: {str(e)}")
+    st.stop()
 
 def preprocess_text(text):
-    text = text.lower()
-    text = re.sub(r'\d+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    tokens = word_tokenize(text)
-    tokens = [word for word in tokens if word not in stopwords.words('english')]
-    return ' '.join(tokens)
+    try:
+        text = text.lower()
+        text = re.sub(r'\d+', '', text)
+        text = text.translate(str.maketrans('', '', string.punctuation))
+        tokens = word_tokenize(text)
+        tokens = [word for word in tokens if word not in stopwords.words('english')]
+        
+        return ' '.join(tokens)
+    except Exception as e:
+        st.error(f"Text processing error: {str(e)}")
+        return ""
 
 st.markdown("""
 <style>
@@ -54,7 +68,6 @@ h2.title {
     margin-top: 5px;
     margin-bottom: 40px;
 }
-
 .stTextArea textarea {
     background-color: #ffffff !important;
     color: #333;
@@ -65,7 +78,6 @@ h2.title {
     border: 1px solid #ccc;
     box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
 }
-
 .stButton > button {
     background-color: yellow;
     color: black;
@@ -76,16 +88,16 @@ h2.title {
     padding: 12px 24px;
     box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
     cursor: pointer;
+    transition: all 0.3s ease;
 }
 .stButton > button:hover {
     background-color: white;
+    transform: translateY(-2px);
 }
-
 .result-box {
-    margin-top: 40px;
+    margin: 40px auto;
     padding: 30px;
     border-radius: 30px;
-    display: inline-block;
     text-align: center;
     font-size: 1.5rem;
     font-weight: bold;
@@ -93,8 +105,12 @@ h2.title {
     width: 50%;
     max-width: 500px;
     box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.5s ease-out;
 }
-
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .footer {
     text-align: center;
     margin-top: 50px;
@@ -105,43 +121,52 @@ h2.title {
     color: #ffcc00;
     text-decoration: none;
     font-weight: 600;
+    transition: color 0.3s ease;
 }
 .footer a:hover {
+    color: #ffdd33;
     text-decoration: underline;
 }
-
 .char-counter {
     text-align: center;
     color: #ffffff;
     font-size: 14px;
     margin-top: -10px;
+    opacity: 0.8;
 }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 class='title'>📧 Email Spam Detector</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='title'>Email Spam Detector</h2>", unsafe_allow_html=True)
 st.markdown("<p class='subtitle'>Paste your email content below to check if it's spam!</p>", unsafe_allow_html=True)
 
-user_input = st.text_area("", height=250, placeholder="Paste your email text here...")
+user_input = st.text_area("", height=250, placeholder="Paste your email text here...", key="email_input")
 
 char_count = len(user_input)
 st.markdown(f"<div class='char-counter'>{char_count}/4000 characters</div>", unsafe_allow_html=True)
 
-if st.button("Run Spam Test"):
-    if user_input.strip() == "":
+if st.button("Run Spam Test", key="analyze_btn"):
+    if not user_input.strip():
         st.warning("Please enter some text first.")
     else:
-        cleaned = preprocess_text(user_input)
-        vectorized = vectorizer.transform([cleaned])
-        prediction = model.predict(vectorized)[0]
-        result_text = "Spam" if prediction == 1 else "Not Spam"
-        color = "#FF4D4D" if prediction == 1 else "#28A745"
+        with st.spinner("Analyzing text..."):
+            try:
+                cleaned = preprocess_text(user_input)
+                vectorized = vectorizer.transform([cleaned])
+                prediction = model.predict(vectorized)[0]
+                
+                result_text = "Spam" if prediction == 1 else "Not Spam"
+                color = "#FF4D4D" if prediction == 1 else "#28A745"
+                
+                st.markdown(
+                    f"<div class='result-box' style='color:{color};'>{result_text}</div>",
+                    unsafe_allow_html=True
+                )
+                
+            except Exception as e:
+                st.error(f"Analysis failed: {str(e)}")
 
-        st.markdown(
-            f"<div class='result-box' style='color:{color};'>{result_text}</div>",
-            unsafe_allow_html=True
-        )
-
+# Footer
 st.markdown("""
 <div class='footer'>
     <a href="https://github.com/wigjatin/spam-detector-large-scale" target="_blank">🔗 View this project on GitHub</a>
