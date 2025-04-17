@@ -68,6 +68,6 @@ After experimenting with various classifiers (SVM, Logistic Regression, Decision
 
 ## Demo
 You can access the live demo of the application by visiting the following link:
-[View Demo on Streamlit Cloud](https://spam-detection-jatin-wig.streamlit.app/)
+[View Demo](https://spam-detection-jatin-wig.streamlit.app/)
 
 
