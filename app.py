@@ -8,28 +8,23 @@ import time
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-def safe_nltk_download(resource):
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            nltk.download(resource)
-            return True
-        except PermissionError:
-            if attempt < max_retries - 1:
-                time.sleep(1)
-                continue
-            st.error(f"Failed to download NLTK resource '{resource}' after {max_retries} attempts")
-            return False
-        except Exception as e:
-            st.error(f"Error downloading NLTK resource '{resource}': {str(e)}")
-            return False
+nltk_data_path = os.path.join(os.path.expanduser("~"), "nltk_data")
+os.makedirs(nltk_data_path, exist_ok=True)
+nltk.data.path.append(nltk_data_path)
 
-required_nltk = ['punkt', 'stopwords']
-for resource in required_nltk:
+def download_nltk_resource(resource):
     try:
-        nltk.data.find(f'tokenizers/{resource}' if resource == 'punkt' else f'corpora/{resource}')
+        nltk.data.find(resource)
     except LookupError:
-        safe_nltk_download(resource)
+        try:
+            nltk.download(resource.split('/')[-1], download_dir=nltk_data_path)
+            nltk.data.path.append(nltk_data_path)
+        except Exception as e:
+            st.error(f"Failed to download NLTK resource {resource}: {str(e)}")
+            st.stop()
+
+for resource in ['tokenizers/punkt', 'corpora/stopwords']:
+    download_nltk_resource(resource)
 
 try:
     model = joblib.load('model.pkl')
@@ -149,11 +144,7 @@ if st.button("Run Spam Test"):
         prediction = model.predict(vectorized)[0]
         result_text = "Spam" if prediction == 1 else "Not Spam"
         color = "#FF4D4D" if prediction == 1 else "#28A745"
-
-        st.markdown(
-            f"<div class='result-box' style='color:{color};'>{result_text}</div>",
-            unsafe_allow_html=True
-        )
+        st.markdown(f"<div class='result-box' style='color:{color};'>{result_text}</div>", unsafe_allow_html=True)
 
 st.markdown("""
 <div class='footer'>
