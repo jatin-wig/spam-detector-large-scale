@@ -3,6 +3,8 @@ import pickle
 import nltk
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
+nltk.download("punkt")
+nltk.download("punkt_tab")
 
 st.set_page_config(page_title="Email Spam Detector", page_icon="📩", layout="centered")
 
