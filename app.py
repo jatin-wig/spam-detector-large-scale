@@ -1,135 +1,167 @@
 import streamlit as st
-import joblib
+import pickle
 import nltk
-import re
-import string
-import os
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
 
-nltk.download('punkt', quiet=True)
-nltk.download('stopwords', quiet=True)
-nltk.download('punkt_tab', quiet=True)
+st.set_page_config(page_title="Email Spam Detector", page_icon="📩", layout="centered")
 
-try:
-    model = joblib.load('model.pkl')
-    vectorizer = joblib.load('vectorizer.pkl')
-except Exception as e:
-    st.error(f"Failed to load model files: {str(e)}")
-    st.stop()
+nltk.download("punkt", quiet=True)
+nltk.download("stopwords", quiet=True)
 
-def preprocess_text(text):
+ps = PorterStemmer()
+stop_words = set(stopwords.words("english"))
+
+def clean_text(text):
     text = text.lower()
-    text = re.sub(r'\d+', '', text)
-    text = text.translate(str.maketrans('', '', string.punctuation))
-    tokens = word_tokenize(text)
-    tokens = [word for word in tokens if word not in stopwords.words('english')]
-    return ' '.join(tokens)
+    tokens = nltk.word_tokenize(text)
+    tokens = [w for w in tokens if w.isalnum()]
+    tokens = [w for w in tokens if w not in stop_words]
+    tokens = [ps.stem(w) for w in tokens]
+    return " ".join(tokens)
+
+@st.cache_resource
+def load_model():
+    with open("model.pkl", "rb") as f:
+        return pickle.load(f)
+
+model = load_model()
 
 st.markdown("""
 <style>
-body {
-    background: linear-gradient(135deg, #FF6F61, #D65D5D);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #333;
-    margin: 0;
-    padding: 0;
-}
 .stApp {
-    background: linear-gradient(135deg, #FF6F61, #D65D5D);
+    background: linear-gradient(135deg, #ff5f6d 0%, #ffc371 100%);
 }
-h2.title {
-    color: #FFFFFF;
+.main-card {
+    background: rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: 26px;
+    padding: 28px;
+    box-shadow: 0px 10px 35px rgba(0,0,0,0.18);
+    border: 1px solid rgba(255,255,255,0.35);
+    margin-top: 25px;
+}
+h1 {
     text-align: center;
-    font-size: 3rem;
-    font-weight: 600;
-    margin-top: 30px;
+    color: white;
+    font-weight: 800;
+    letter-spacing: 0.5px;
 }
 .subtitle {
     text-align: center;
-    color: #fefefe;
-    font-size: 1.2rem;
-    margin-top: 5px;
-    margin-bottom: 40px;
+    color: rgba(255,255,255,0.92);
+    font-size: 16px;
+    margin-top: -10px;
+    margin-bottom: 25px;
 }
 .stTextArea textarea {
-    background-color: #ffffff !important;
-    color: #333;
-    font-size: 16px;
-    border-radius: 20px !important;
-    padding: 18px;
-    width: 100%;
-    border: 1px solid #ccc;
-    box-shadow: 0px 4px 8px rgba(0,0,0,0.1);
+    background: rgba(255,255,255,0.90) !important;
+    border-radius: 18px !important;
+    font-size: 16px !important;
+    padding: 16px !important;
+    border: 1px solid rgba(255,255,255,0.55) !important;
+    box-shadow: 0px 6px 16px rgba(0,0,0,0.12) !important;
 }
 .stButton > button {
-    background-color: yellow;
-    color: black;
-    border: none;
-    border-radius: 50px;
-    font-size: 18px;
-    font-weight: 600;
-    padding: 12px 24px;
-    box-shadow: 0px 4px 12px rgba(0,0,0,0.2);
-    cursor: pointer;
+    background: #ffe600 !important;
+    color: #111 !important;
+    border: none !important;
+    border-radius: 999px !important;
+    padding: 12px 22px !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    box-shadow: 0px 8px 18px rgba(0,0,0,0.20) !important;
+    transition: 0.2s ease-in-out;
 }
 .stButton > button:hover {
-    background-color: white;
+    background: #ffffff !important;
+    transform: translateY(-1px);
+}
+.helper {
+    text-align: center;
+    color: rgba(255,255,255,0.90);
+    font-size: 13px;
+    margin-top: -6px;
 }
 .result-box {
-    margin-top: 40px;
-    padding: 30px;
-    border-radius: 30px;
-    display: inline-block;
+    margin-top: 22px;
+    padding: 18px 18px;
+    border-radius: 22px;
     text-align: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    background-color: #ffffff;
-    width: 50%;
-    max-width: 500px;
-    box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.1);
+    font-size: 22px;
+    font-weight: 800;
+    background: rgba(255,255,255,0.96);
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.14);
+    border: 1px solid rgba(255,255,255,0.5);
+}
+.pill {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 700;
+    background: rgba(0,0,0,0.08);
 }
 .footer {
     text-align: center;
-    margin-top: 50px;
-    color: white;
-    font-size: 1rem;
+    margin-top: 26px;
+    color: rgba(255,255,255,0.95);
+    font-size: 14px;
 }
 .footer a {
-    color: #ffcc00;
+    color: #fff;
+    font-weight: 800;
     text-decoration: none;
-    font-weight: 600;
 }
 .footer a:hover {
     text-decoration: underline;
 }
-.char-counter {
-    text-align: center;
-    color: #ffffff;
-    font-size: 14px;
-    margin-top: -10px;
-}
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 class='title'>Email Spam Detector</h2>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>Paste your email content below to check if it's spam!</p>", unsafe_allow_html=True)
+st.markdown("<h1>Email Spam Detector</h1>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>Paste your email/SMS content below to check if it is spam 🚫</div>", unsafe_allow_html=True)
 
-user_input = st.text_area("", height=250, placeholder="Paste your email text here...")
+st.markdown("<div class='main-card'>", unsafe_allow_html=True)
+
+user_input = st.text_area("", height=200, placeholder="Type or paste message here...")
 
 char_count = len(user_input)
-st.markdown(f"<div class='char-counter'>{char_count}/4000 characters</div>", unsafe_allow_html=True)
+st.markdown(f"<div class='helper'>{char_count}/4000 characters</div>", unsafe_allow_html=True)
 
-if st.button("Run Spam Test"):
+run = st.button("Run Spam Test")
+
+if run:
     if user_input.strip() == "":
         st.warning("Please enter some text first.")
+    elif len(user_input) > 4000:
+        st.warning("Text too long. Please keep it under 4000 characters.")
     else:
-        cleaned = preprocess_text(user_input)
-        vectorized = vectorizer.transform([cleaned])
-        prediction = model.predict(vectorized)[0]
-        result_text = "Spam" if prediction == 1 else "Not Spam"
-        color = "#FF4D4D" if prediction == 1 else "#28A745"
-        st.markdown(f"<div class='result-box' style='color:{color};'>{result_text}</div>", unsafe_allow_html=True)
+        with st.spinner("Analyzing message..."):
+            pred = model.predict([user_input])[0]
+            try:
+                proba = model.predict_proba([user_input])[0]
+                spam_prob = float(proba[1])
+                ham_prob = float(proba[0])
+                confidence_text = f"Spam Probability: {spam_prob*100:.2f}% | Ham Probability: {ham_prob*100:.2f}%"
+            except:
+                confidence_text = "Confidence not available for this model."
+
+        if pred == 1:
+            label = "🚫 SPAM"
+            color = "#ff3b3b"
+        else:
+            label = "✅ NOT SPAM"
+            color = "#23b26d"
+
+        st.markdown(
+            f"<div class='result-box' style='color:{color};'>{label}<div class='pill'>{confidence_text}</div></div>",
+            unsafe_allow_html=True
+        )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("""
 <div class='footer'>
